@@ -3,6 +3,8 @@ import { PaperAirplaneIcon, DocumentArrowUpIcon } from '@heroicons/react/24/outl
 import { chatAPI, reportAPI, userAPI } from '../services/api';
 import { ChatSession, ChatMessage, User } from '../types';
 import Layout from '../components/Layout';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 const Chat: React.FC = () => {
   const [sessions, setSessions] = useState<ChatSession[]>([]);
@@ -343,16 +345,90 @@ const Chat: React.FC = () => {
                       </div>
                     )}
 
-                    {/* 消息内容 */}
-                    <div
-                      className={`max-w-xs lg:max-w-md px-4 py-3 rounded-2xl shadow-sm ${
-                        message.role === 'user'
-                          ? 'bg-gradient-to-r from-blue-600 to-cyan-600 text-white'
-                          : 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-700'
-                      }`}
-                    >
-                      <p className="whitespace-pre-wrap text-sm leading-relaxed">{message.content}</p>
-                    </div>
+                                          {/* 消息内容 */}
+                      <div
+                        className={`max-w-xs lg:max-w-md px-4 py-3 rounded-2xl shadow-sm ${
+                          message.role === 'user'
+                            ? 'bg-gradient-to-r from-blue-600 to-cyan-600 text-white'
+                            : 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-700'
+                        }`}
+                      >
+                        {message.role === 'assistant' ? (
+                          <div className="prose prose-sm dark:prose-invert max-w-none">
+                            <ReactMarkdown
+                              remarkPlugins={[remarkGfm]}
+                              components={{
+                                // 自定义代码块样式
+                                code: ({ node, inline, className, children, ...props }: any) => {
+                                  const match = /language-(\w+)/.exec(className || '');
+                                  return !inline ? (
+                                    <pre className="bg-gray-100 dark:bg-gray-700 rounded-lg p-3 overflow-x-auto">
+                                      <code className={className} {...props}>
+                                        {children}
+                                      </code>
+                                    </pre>
+                                  ) : (
+                                    <code className="bg-gray-100 dark:bg-gray-700 px-1 py-0.5 rounded text-sm" {...props}>
+                                      {children}
+                                    </code>
+                                  );
+                                },
+                                // 自定义链接样式
+                                a: ({ node, children, href, ...props }: any) => (
+                                  <a
+                                    href={href}
+                                    className="text-blue-600 dark:text-blue-400 hover:underline"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    {...props}
+                                  >
+                                    {children}
+                                  </a>
+                                ),
+                                // 自定义表格样式
+                                table: ({ node, children, ...props }: any) => (
+                                  <div className="overflow-x-auto">
+                                    <table className="min-w-full border-collapse border border-gray-300 dark:border-gray-600" {...props}>
+                                      {children}
+                                    </table>
+                                  </div>
+                                ),
+                                th: ({ node, children, ...props }: any) => (
+                                  <th className="border border-gray-300 dark:border-gray-600 px-3 py-2 bg-gray-50 dark:bg-gray-700 font-semibold" {...props}>
+                                    {children}
+                                  </th>
+                                ),
+                                td: ({ node, children, ...props }: any) => (
+                                  <td className="border border-gray-300 dark:border-gray-600 px-3 py-2" {...props}>
+                                    {children}
+                                  </td>
+                                ),
+                                // 自定义列表样式
+                                ul: ({ node, children, ...props }: any) => (
+                                  <ul className="list-disc list-inside space-y-1" {...props}>
+                                    {children}
+                                  </ul>
+                                ),
+                                ol: ({ node, children, ...props }: any) => (
+                                  <ol className="list-decimal list-inside space-y-1" {...props}>
+                                    {children}
+                                  </ol>
+                                ),
+                                // 自定义引用样式
+                                blockquote: ({ node, children, ...props }: any) => (
+                                  <blockquote className="border-l-4 border-blue-500 pl-4 italic bg-blue-50 dark:bg-blue-900/20 py-2" {...props}>
+                                    {children}
+                                  </blockquote>
+                                ),
+                              }}
+                            >
+                              {message.content}
+                            </ReactMarkdown>
+                          </div>
+                        ) : (
+                          <p className="whitespace-pre-wrap text-sm leading-relaxed">{message.content}</p>
+                        )}
+                      </div>
 
                     {/* 用户头像 - 右侧 */}
                     {message.role === 'user' && (
