@@ -1,0 +1,89 @@
+version: '3.8'
+
+services:
+  # 数据库服务
+  db:
+    image: postgres:15-alpine
+    container_name: medical_ai_db
+    environment:
+      POSTGRES_DB: medical_ai
+      POSTGRES_USER: medical_ai_user
+      POSTGRES_PASSWORD: medical_ai_password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5432:5432"
+    networks:
+      - medical_ai_network
+    restart: unless-stopped
+
+  # 后端服务
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: medical_ai_backend
+    environment:
+      - DATABASE_URL=postgresql://medical_ai_user:medical_ai_password@db:5432/medical_ai
+      - SECRET_KEY=your-secret-key-here-change-in-production
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
+      - KIMI_API_KEY=${KIMI_API_KEY}
+    volumes:
+      - ./backend/uploads:/app/uploads
+      - ./backend/avatars:/app/avatars
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+    networks:
+      - medical_ai_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # 前端服务
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: medical_ai_frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    networks:
+      - medical_ai_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Redis缓存（可选，用于会话存储）
+  redis:
+    image: redis:7-alpine
+    container_name: medical_ai_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - medical_ai_network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  medical_ai_network:
+    driver: bridge
