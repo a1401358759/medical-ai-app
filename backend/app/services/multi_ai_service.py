@@ -363,7 +363,7 @@ class MultiAIService:
         # 调用对应的 AI 服务
         return await self.ai_service.chat(messages)
 
-    async def analyze_report(self, file_content: str, file_type: str) -> str:
+    async def analyze_report(self, file_content: str, file_type: str = None) -> str:
         return await self.ai_service.analyze_report(file_content)
 
     def process_document(self, file_path: str, file_type: str) -> str:

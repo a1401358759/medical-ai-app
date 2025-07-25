@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { PaperAirplaneIcon, DocumentArrowUpIcon, ClipboardDocumentIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
-import { chatAPI, reportAPI, userAPI } from '../services/api';
-import { ChatSession, ChatMessage, User } from '../types';
+import { chatAPI, reportAPI } from '../services/api';
+import { ChatSession, ChatMessage } from '../types';
 import Layout from '../components/Layout';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { useUser } from '../contexts/UserContext';
+import { useDebounce } from '../hooks';
 
 const Chat: React.FC = () => {
   const [sessions, setSessions] = useState<ChatSession[]>([]);
@@ -18,15 +20,17 @@ const Chat: React.FC = () => {
   const [deletingSession, setDeletingSession] = useState(false);
   const [showSessionList, setShowSessionList] = useState(false);
   const [uploadingReport, setUploadingReport] = useState(false);
-  const [user, setUser] = useState<User | null>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [editingSessionId, setEditingSessionId] = useState<number | null>(null);
   const [editingTitle, setEditingTitle] = useState('');
   const [updatingSession, setUpdatingSession] = useState(false);
   const [showCopySuccess, setShowCopySuccess] = useState(false);
   const [regeneratingMessageId, setRegeneratingMessageId] = useState<number | null>(null);
+  const [isLoadingSessions, setIsLoadingSessions] = useState(false);
+  const [isLoadingMessages, setIsLoadingMessages] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { user } = useUser();
 
   // 从localStorage加载侧边栏状态
   useEffect(() => {
@@ -48,6 +52,9 @@ const Chat: React.FC = () => {
   };
 
   const loadSessions = useCallback(async () => {
+    if (isLoadingSessions) return; // 防止重复请求
+
+    setIsLoadingSessions(true);
     try {
       const data = await chatAPI.getSessions();
       setSessions(data);
@@ -56,39 +63,36 @@ const Chat: React.FC = () => {
       }
     } catch (error) {
       console.error('加载会话失败:', error);
+    } finally {
+      setIsLoadingSessions(false);
     }
-  }, [currentSession]);
+  }, [currentSession, isLoadingSessions]); // 添加 isLoadingSessions 依赖
 
   useEffect(() => {
     loadSessions();
-    loadUserProfile();
-  }, [loadSessions]);
-
-  const loadUserProfile = async () => {
-    try {
-      const userData = await userAPI.getProfile();
-      setUser(userData);
-    } catch (error) {
-      console.error('加载用户信息失败:', error);
-    }
-  };
+  }, []); // 只在组件挂载时执行一次
 
   useEffect(() => {
     if (currentSession) {
       loadMessages(currentSession.id);
     }
-  }, [currentSession]);
+  }, [currentSession?.id]); // 只依赖 session ID，避免对象引用变化导致的重复请求
 
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
 
   const loadMessages = async (sessionId: number) => {
+    if (isLoadingMessages) return; // 防止重复请求
+
+    setIsLoadingMessages(true);
     try {
       const data = await chatAPI.getMessages(sessionId);
       setMessages(data);
     } catch (error) {
       console.error('加载消息失败:', error);
+    } finally {
+      setIsLoadingMessages(false);
     }
   };
 
@@ -202,8 +206,10 @@ const Chat: React.FC = () => {
 
     const userMessage: ChatMessage = {
       id: Date.now(),
+      session_id: currentSession.id,
       role: 'user',
       content: inputMessage,
+      message_type: 'text',
       created_at: new Date().toISOString(),
     };
 
@@ -218,8 +224,10 @@ const Chat: React.FC = () => {
       console.error('发送消息失败:', error);
       const errorMessage: ChatMessage = {
         id: Date.now() + 1,
+        session_id: currentSession.id,
         role: 'assistant',
         content: '抱歉，发送消息时出现错误。',
+        message_type: 'text',
         created_at: new Date().toISOString(),
       };
       setMessages(prev => [...prev, errorMessage]);
@@ -245,32 +253,39 @@ const Chat: React.FC = () => {
     }
 
     setUploadingReport(true);
+    let targetSessionId: number | undefined = currentSession?.id;
+    let createdNewSession = false;
+
     try {
-      const newReport = await reportAPI.uploadReport(file);
+      // 如果没有当前会话，先创建一个新会话
+      if (!targetSessionId) {
+        const newSession = await chatAPI.createSession('报告分析');
+        setSessions([newSession, ...sessions]);
+        setCurrentSession(newSession);
+        targetSessionId = newSession.id;
+        createdNewSession = true;
+      }
 
-      // 将报告信息作为消息发送到聊天中
-      const reportMessage: ChatMessage = {
-        id: Date.now(),
-        role: 'user',
-        content: `上传了医疗报告：${newReport.filename}`,
-        created_at: new Date().toISOString(),
-      };
+      // 上传报告到指定的会话
+      const newReport = await reportAPI.uploadReport(file, targetSessionId);
 
-      const analysisMessage: ChatMessage = {
-        id: Date.now() + 1,
-        role: 'assistant',
-        content: `报告分析完成！\n\n**报告内容摘要：**\n${newReport.content.substring(0, 200)}...\n\n**AI 分析结果：**\n${newReport.analysis}`,
-        created_at: new Date().toISOString(),
-      };
-
-      setMessages(prev => [...prev, reportMessage, analysisMessage]);
+      // 重新加载消息以获取完整的对话
+      if (newReport.session_id) {
+        await loadMessages(newReport.session_id);
+        // 如果创建了新会话，重新加载会话列表
+        if (createdNewSession) {
+          await loadSessions();
+        }
+      }
 
     } catch (error) {
       console.error('上传报告失败:', error);
       const errorMessage: ChatMessage = {
         id: Date.now(),
+        session_id: targetSessionId || currentSession?.id || 0,
         role: 'assistant',
         content: '抱歉，报告上传失败，请重试。',
+        message_type: 'text',
         created_at: new Date().toISOString(),
       };
       setMessages(prev => [...prev, errorMessage]);

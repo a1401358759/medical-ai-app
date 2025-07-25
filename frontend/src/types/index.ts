@@ -34,16 +34,12 @@ export interface ChatSession {
 
 export interface ChatMessage {
   id: number;
+  session_id: number;
   role: 'user' | 'assistant';
   content: string;
-  created_at: string;
-}
-
-export interface MedicalReport {
-  id: number;
-  filename: string;
-  content: string;
-  analysis: string;
+  message_type: string;
+  filename?: string;
+  file_path?: string;
   created_at: string;
 }
 

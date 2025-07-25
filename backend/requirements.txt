@@ -2,6 +2,10 @@ fastapi
 uvicorn[standard]
 pydantic
 sqlalchemy==2.0.23
+# PostgreSQL 数据库驱动
+psycopg2-binary==2.9.9
+# 异步PostgreSQL驱动（可选，用于异步操作）
+asyncpg==0.29.0
 langchain
 langchain-openai
 langchain-community

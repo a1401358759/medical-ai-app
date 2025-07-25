@@ -2,8 +2,7 @@ import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Bars3Icon, ChevronDownIcon, UserIcon, SunIcon, MoonIcon, Cog6ToothIcon } from '@heroicons/react/24/outline';
 import { useDarkMode } from '../contexts/DarkModeContext';
-import { userAPI } from '../services/api';
-import { User } from '../types';
+import { useUser } from '../contexts/UserContext';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -13,31 +12,9 @@ interface LayoutProps {
 const Layout: React.FC<LayoutProps> = ({ children, fullWidth = false }) => {
   const [sidebarOpen, setSidebarOpen] = React.useState(false);
   const [userMenuOpen, setUserMenuOpen] = React.useState(false);
-  const [user, setUser] = React.useState<User | null>(null);
-  const [loading, setLoading] = React.useState(true);
   const navigate = useNavigate();
   const { isDarkMode, toggleDarkMode } = useDarkMode();
-
-  React.useEffect(() => {
-    const loadUserProfile = async () => {
-      try {
-        const token = localStorage.getItem('token');
-        if (token) {
-          const userData = await userAPI.getProfile();
-          setUser(userData);
-        }
-      } catch (error) {
-        console.error('加载用户信息失败:', error);
-        // 如果获取用户信息失败，可能是token过期，清除token并跳转到登录页
-        localStorage.removeItem('token');
-        navigate('/login');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadUserProfile();
-  }, [navigate]);
+  const { user, loading } = useUser();
 
   const handleLogout = () => {
     localStorage.removeItem('token');

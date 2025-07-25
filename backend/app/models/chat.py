@@ -24,6 +24,9 @@ class ChatMessage(Base):
     session_id = Column(Integer, ForeignKey("chat_sessions.id"))
     role = Column(String)  # user, assistant
     content = Column(Text)
+    message_type = Column(String, default="text")  # text, report_upload, report_analysis
+    filename = Column(String, nullable=True)  # 文件名（用于报告上传）
+    file_path = Column(String, nullable=True)  # 文件路径（用于报告上传）
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     session = relationship("ChatSession", back_populates="messages")

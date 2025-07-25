@@ -1,6 +1,5 @@
-from .user import User
-from .chat import ChatSession, ChatMessage
-from .report import MedicalReport
 from ..database import Base
+from .chat import ChatMessage, ChatSession
+from .user import User
 
-__all__ = ["Base", "User", "ChatSession", "ChatMessage", "MedicalReport"]
+__all__ = ["Base", "ChatMessage", "ChatSession", "User"]

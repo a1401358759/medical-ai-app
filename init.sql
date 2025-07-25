@@ -25,30 +25,22 @@ CREATE TABLE IF NOT EXISTS chat_sessions (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- 创建聊天消息表
+-- 创建聊天消息表（包含报告功能）
 CREATE TABLE IF NOT EXISTS chat_messages (
     id SERIAL PRIMARY KEY,
     session_id INTEGER REFERENCES chat_sessions(id) ON DELETE CASCADE,
     role VARCHAR(20) NOT NULL CHECK (role IN ('user', 'assistant')),
     content TEXT NOT NULL,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-
--- 创建医疗报告表
-CREATE TABLE IF NOT EXISTS medical_reports (
-    id SERIAL PRIMARY KEY,
-    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
-    filename VARCHAR(255) NOT NULL,
-    file_path VARCHAR(255) NOT NULL,
-    content TEXT,
-    analysis TEXT,
+    message_type VARCHAR(50) DEFAULT 'text' CHECK (message_type IN ('text', 'report_upload', 'report_analysis')),
+    filename VARCHAR(255),
+    file_path VARCHAR(255),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
 -- 创建索引
 CREATE INDEX IF NOT EXISTS idx_chat_sessions_user_id ON chat_sessions(user_id);
 CREATE INDEX IF NOT EXISTS idx_chat_messages_session_id ON chat_messages(session_id);
-CREATE INDEX IF NOT EXISTS idx_medical_reports_user_id ON medical_reports(user_id);
+CREATE INDEX IF NOT EXISTS idx_chat_messages_type ON chat_messages(message_type);
 
 -- 创建更新时间触发器函数
 CREATE OR REPLACE FUNCTION update_updated_at_column()

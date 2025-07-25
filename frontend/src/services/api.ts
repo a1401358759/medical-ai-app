@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { User, ChatSession, ChatMessage, MedicalReport, LoginForm, RegisterForm, AuthResponse, UserSettings } from '../types';
+import { User, ChatSession, ChatMessage, LoginForm, RegisterForm, AuthResponse, UserSettings } from '../types';
 
 const API_BASE_URL = 'http://localhost:8000/api';
 
@@ -95,19 +95,26 @@ export const chatAPI = {
 
 // 报告相关 API
 export const reportAPI = {
-  uploadReport: (file: File): Promise<MedicalReport> => {
+  uploadReport: (file: File, sessionId?: number): Promise<ChatMessage> => {
     const formData = new FormData();
     formData.append('file', file);
-    return api.post('/reports/upload', formData, {
+
+    // 构建URL，包含session_id作为查询参数
+    let url = '/reports/upload';
+    if (sessionId) {
+      url += `?session_id=${sessionId}`;
+    }
+
+    return api.post(url, formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
     }).then(res => res.data);
   },
 
-  getReports: (): Promise<MedicalReport[]> =>
+  getReports: (): Promise<ChatMessage[]> =>
     api.get('/reports').then(res => res.data),
 
-  getReport: (reportId: number): Promise<MedicalReport> =>
-    api.get(`/reports/${reportId}`).then(res => res.data),
+  getReport: (messageId: number): Promise<ChatMessage> =>
+    api.get(`/reports/${messageId}`).then(res => res.data),
 };

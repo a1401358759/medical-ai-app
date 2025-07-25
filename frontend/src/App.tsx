@@ -7,44 +7,47 @@ import Profile from './pages/Profile';
 import Settings from './pages/Settings';
 import PrivateRoute from './components/PrivateRoute';
 import { DarkModeProvider } from './contexts/DarkModeContext';
+import { UserProvider } from './contexts/UserContext';
 
 function App() {
   return (
     <DarkModeProvider>
-      <Router>
-        <div className="App">
-          <Routes>
-            <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<Register />} />
-            <Route
-              path="/chat"
-              element={
-                <PrivateRoute>
-                  <Chat />
-                </PrivateRoute>
-              }
-            />
+      <UserProvider>
+        <Router>
+          <div className="App">
+            <Routes>
+              <Route path="/login" element={<Login />} />
+              <Route path="/register" element={<Register />} />
+              <Route
+                path="/chat"
+                element={
+                  <PrivateRoute>
+                    <Chat />
+                  </PrivateRoute>
+                }
+              />
 
-            <Route
-              path="/profile"
-              element={
-                <PrivateRoute>
-                  <Profile />
-                </PrivateRoute>
-              }
-            />
-            <Route
-              path="/settings"
-              element={
-                <PrivateRoute>
-                  <Settings />
-                </PrivateRoute>
-              }
-            />
-            <Route path="/" element={<Navigate to="/chat" replace />} />
-          </Routes>
-        </div>
-      </Router>
+              <Route
+                path="/profile"
+                element={
+                  <PrivateRoute>
+                    <Profile />
+                  </PrivateRoute>
+                }
+              />
+              <Route
+                path="/settings"
+                element={
+                  <PrivateRoute>
+                    <Settings />
+                  </PrivateRoute>
+                }
+              />
+              <Route path="/" element={<Navigate to="/chat" replace />} />
+            </Routes>
+          </div>
+        </Router>
+      </UserProvider>
     </DarkModeProvider>
   );
 }
