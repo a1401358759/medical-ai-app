@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { PaperAirplaneIcon, DocumentArrowUpIcon } from '@heroicons/react/24/outline';
+import { PaperAirplaneIcon, DocumentArrowUpIcon, ClipboardDocumentIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
 import { chatAPI, reportAPI, userAPI } from '../services/api';
 import { ChatSession, ChatMessage, User } from '../types';
 import Layout from '../components/Layout';
@@ -23,6 +23,8 @@ const Chat: React.FC = () => {
   const [editingSessionId, setEditingSessionId] = useState<number | null>(null);
   const [editingTitle, setEditingTitle] = useState('');
   const [updatingSession, setUpdatingSession] = useState(false);
+  const [showCopySuccess, setShowCopySuccess] = useState(false);
+  const [regeneratingMessageId, setRegeneratingMessageId] = useState<number | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -285,6 +287,46 @@ const Chat: React.FC = () => {
 
   const triggerFileUpload = () => {
     fileInputRef.current?.click();
+  };
+
+  // 复制消息内容到剪贴板
+  const copyMessageContent = async (content: string) => {
+    try {
+      await navigator.clipboard.writeText(content);
+      // 显示复制成功提示
+      setShowCopySuccess(true);
+      setTimeout(() => setShowCopySuccess(false), 2000);
+    } catch (error) {
+      console.error('复制失败:', error);
+      // 降级方案：使用传统的复制方法
+      const textArea = document.createElement('textarea');
+      textArea.value = content;
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textArea);
+      // 显示复制成功提示
+      setShowCopySuccess(true);
+      setTimeout(() => setShowCopySuccess(false), 2000);
+    }
+  };
+
+  // 重新生成消息
+  const regenerateMessage = async (messageId: number) => {
+    setRegeneratingMessageId(messageId);
+    try {
+      const regeneratedMessage = await chatAPI.regenerateMessage(messageId);
+
+      // 更新消息列表中的对应消息
+      setMessages(prev => prev.map(msg =>
+        msg.id === messageId ? regeneratedMessage : msg
+      ));
+    } catch (error) {
+      console.error('重新生成消息失败:', error);
+      alert('重新生成消息失败，请重试');
+    } finally {
+      setRegeneratingMessageId(null);
+    }
   };
 
     return (
@@ -595,7 +637,8 @@ const Chat: React.FC = () => {
                       </div>
                     )}
 
-                                          {/* 消息内容 */}
+                    {/* 消息内容 */}
+                    <div className="relative group">
                       <div
                         className={`max-w-xs lg:max-w-2xl xl:max-w-4xl px-4 py-3 rounded-2xl shadow-sm ${
                           message.role === 'user'
@@ -678,6 +721,32 @@ const Chat: React.FC = () => {
                           <p className="whitespace-pre-wrap text-sm leading-relaxed">{message.content}</p>
                         )}
                       </div>
+
+                      {/* AI消息的操作按钮 */}
+                      {message.role === 'assistant' && (
+                        <div className="mt-2 flex space-x-2">
+                          <button
+                            onClick={() => copyMessageContent(message.content)}
+                            className="p-2 text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-all duration-200"
+                            title="复制内容"
+                          >
+                            <ClipboardDocumentIcon className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => regenerateMessage(message.id)}
+                            disabled={regeneratingMessageId === message.id}
+                            className="p-2 text-gray-500 dark:text-gray-400 hover:text-green-600 dark:hover:text-green-400 transition-all duration-200 disabled:opacity-50"
+                            title="重新生成"
+                          >
+                            {regeneratingMessageId === message.id ? (
+                              <div className="w-4 h-4 border-2 border-green-600 border-t-transparent rounded-full animate-spin"></div>
+                            ) : (
+                              <ArrowPathIcon className="w-4 h-4" />
+                            )}
+                          </button>
+                        </div>
+                      )}
+                    </div>
 
                     {/* 用户头像 - 右侧 */}
                     {message.role === 'user' && (
@@ -812,6 +881,18 @@ const Chat: React.FC = () => {
         onChange={handleFileInput}
         disabled={uploadingReport}
       />
+
+      {/* 复制成功提示 */}
+      {showCopySuccess && (
+        <div className="fixed top-20 right-4 z-50 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg transform transition-all duration-300 ease-in-out">
+          <div className="flex items-center space-x-2">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+            <span>已复制到剪贴板</span>
+          </div>
+        </div>
+      )}
 
       {/* 删除确认弹框 */}
       {showDeleteModal && (

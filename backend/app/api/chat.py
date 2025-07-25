@@ -210,3 +210,63 @@ def get_chat_messages(
         ChatMessage.session_id == session_id
     ).order_by(ChatMessage.created_at).all()
     return messages
+
+
+@router.post("/messages/{message_id}/regenerate", response_model=ChatMessageResponse)
+async def regenerate_chat_message(
+    message_id: int,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    from datetime import datetime
+
+    # 获取要重新生成的消息
+    ai_message = db.query(ChatMessage).filter(
+        ChatMessage.id == message_id,
+        ChatMessage.role == "assistant"
+    ).first()
+
+    if not ai_message:
+        raise HTTPException(status_code=404, detail="消息不存在或不是AI消息")
+
+    # 验证会话所有权
+    session = db.query(ChatSession).filter(
+        ChatSession.id == ai_message.session_id,
+        ChatSession.user_id == current_user.id
+    ).first()
+
+    if not session:
+        raise HTTPException(status_code=404, detail="会话不存在")
+
+    # 获取会话历史（不包括要重新生成的消息）
+    history = db.query(ChatMessage).filter(
+        ChatMessage.session_id == ai_message.session_id,
+        ChatMessage.created_at < ai_message.created_at
+    ).order_by(ChatMessage.created_at).all()
+
+    context = [{"role": msg.role, "content": msg.content} for msg in history]
+
+    # 根据用户设置创建AI服务实例
+    user_ai_service = ai_service.create_user_ai_service(current_user.settings)
+
+    # 获取最新的用户消息（重新生成的消息对应的用户消息）
+    user_messages = [msg for msg in history if msg.role == "user"]
+    if not user_messages:
+        raise HTTPException(status_code=400, detail="没有找到对应的用户消息")
+
+    last_user_message = user_messages[-1]
+
+    # 获取AI回复
+    ai_response = await user_ai_service.chat([*context, {"role": "user", "content": last_user_message.content}])
+
+    # 更新AI消息内容
+    ai_message.content = ai_response
+    ai_message.created_at = datetime.utcnow()
+
+    # 更新会话的 updated_at 字段
+    session.updated_at = datetime.utcnow()
+
+    db.commit()
+    db.refresh(ai_message)
+
+    return ai_message

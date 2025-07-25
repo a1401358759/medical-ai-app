@@ -88,6 +88,9 @@ export const chatAPI = {
 
   getMessages: (sessionId: number): Promise<ChatMessage[]> =>
     api.get(`/chat/sessions/${sessionId}/messages`).then(res => res.data),
+
+  regenerateMessage: (messageId: number): Promise<ChatMessage> =>
+    api.post(`/chat/messages/${messageId}/regenerate`).then(res => res.data),
 };
 
 // 报告相关 API
