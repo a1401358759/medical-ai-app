@@ -347,7 +347,7 @@ const Chat: React.FC = () => {
 
                                           {/* 消息内容 */}
                       <div
-                        className={`max-w-xs lg:max-w-md px-4 py-3 rounded-2xl shadow-sm ${
+                        className={`max-w-xs lg:max-w-2xl xl:max-w-4xl px-4 py-3 rounded-2xl shadow-sm ${
                           message.role === 'user'
                             ? 'bg-gradient-to-r from-blue-600 to-cyan-600 text-white'
                             : 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-700'
@@ -360,7 +360,6 @@ const Chat: React.FC = () => {
                               components={{
                                 // 自定义代码块样式
                                 code: ({ node, inline, className, children, ...props }: any) => {
-                                  const match = /language-(\w+)/.exec(className || '');
                                   return !inline ? (
                                     <pre className="bg-gray-100 dark:bg-gray-700 rounded-lg p-3 overflow-x-auto">
                                       <code className={className} {...props}>
