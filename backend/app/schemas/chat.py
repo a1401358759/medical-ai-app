@@ -1,10 +1,13 @@
-from pydantic import BaseModel
-from typing import List, Optional
 from datetime import datetime
+from typing import List, Optional
+
+from pydantic import BaseModel
+
 
 class ChatMessageCreate(BaseModel):
     content: str
     session_id: Optional[int] = None
+
 
 class ChatMessageResponse(BaseModel):
     id: int
@@ -15,8 +18,14 @@ class ChatMessageResponse(BaseModel):
     class Config:
         from_attributes = True
 
+
 class ChatSessionCreate(BaseModel):
     title: str
+
+
+class ChatSessionUpdate(BaseModel):
+    title: str
+
 
 class ChatSessionResponse(BaseModel):
     id: int

@@ -77,6 +77,9 @@ export const chatAPI = {
   getSession: (sessionId: number): Promise<ChatSession> =>
     api.get(`/chat/sessions/${sessionId}`).then(res => res.data),
 
+  updateSession: (sessionId: number, title: string): Promise<ChatSession> =>
+    api.put(`/chat/sessions/${sessionId}`, { title }).then(res => res.data),
+
   deleteSession: (sessionId: number): Promise<void> =>
     api.delete(`/chat/sessions/${sessionId}`).then(res => res.data),
 

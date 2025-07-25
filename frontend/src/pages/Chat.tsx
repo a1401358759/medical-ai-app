@@ -20,6 +20,9 @@ const Chat: React.FC = () => {
   const [uploadingReport, setUploadingReport] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [editingSessionId, setEditingSessionId] = useState<number | null>(null);
+  const [editingTitle, setEditingTitle] = useState('');
+  const [updatingSession, setUpdatingSession] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -141,6 +144,55 @@ const Chat: React.FC = () => {
   const cancelDelete = () => {
     setShowDeleteModal(false);
     setSessionToDelete(null);
+  };
+
+  const startEditingSession = (session: ChatSession, e: React.MouseEvent) => {
+    e.stopPropagation(); // 阻止事件冒泡，避免触发会话选择
+    setEditingSessionId(session.id);
+    setEditingTitle(session.title);
+  };
+
+  const cancelEditingSession = () => {
+    setEditingSessionId(null);
+    setEditingTitle('');
+  };
+
+  const saveSessionTitle = async () => {
+    if (!editingSessionId || !editingTitle.trim()) return;
+
+    setUpdatingSession(true);
+    try {
+      const updatedSession = await chatAPI.updateSession(editingSessionId, editingTitle.trim());
+
+      // 更新会话列表
+      setSessions(prev => prev.map(s =>
+        s.id === editingSessionId ? updatedSession : s
+      ));
+
+      // 如果编辑的是当前会话，也要更新当前会话
+      if (currentSession?.id === editingSessionId) {
+        setCurrentSession(updatedSession);
+      }
+
+      // 退出编辑模式
+      setEditingSessionId(null);
+      setEditingTitle('');
+    } catch (error) {
+      console.error('更新会话标题失败:', error);
+      alert('更新会话标题失败，请重试');
+    } finally {
+      setUpdatingSession(false);
+    }
+  };
+
+  const handleEditKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      saveSessionTitle();
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      cancelEditingSession();
+    }
   };
 
   const sendMessage = async () => {
@@ -296,7 +348,65 @@ const Chat: React.FC = () => {
                   // 展开状态：显示完整信息
                   <div className="flex items-center justify-between">
                     <div className="flex-1 min-w-0">
-                      <h3 className="font-medium text-gray-900 dark:text-white truncate">{session.title}</h3>
+                      {editingSessionId === session.id ? (
+                        // 编辑模式
+                        <div className="flex items-center space-x-2">
+                          <input
+                            type="text"
+                            value={editingTitle}
+                            onChange={(e) => setEditingTitle(e.target.value)}
+                            onKeyDown={handleEditKeyPress}
+                            onBlur={saveSessionTitle}
+                            className="flex-1 px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                            autoFocus
+                            disabled={updatingSession}
+                          />
+                          <button
+                            onClick={saveSessionTitle}
+                            disabled={updatingSession}
+                            className="p-1 text-green-600 hover:text-green-700 disabled:opacity-50"
+                            title="保存"
+                          >
+                            {updatingSession ? (
+                              <div className="animate-spin w-3 h-3 border border-green-600 border-t-transparent rounded-full"></div>
+                            ) : (
+                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                              </svg>
+                            )}
+                          </button>
+                          <button
+                            onClick={cancelEditingSession}
+                            disabled={updatingSession}
+                            className="p-1 text-gray-400 hover:text-gray-600 disabled:opacity-50"
+                            title="取消"
+                          >
+                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </button>
+                        </div>
+                      ) : (
+                        // 显示模式
+                        <div className="flex items-center space-x-2">
+                          <h3
+                            className="font-medium text-gray-900 dark:text-white truncate cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 transition-colors duration-200"
+                            onClick={(e) => startEditingSession(session, e)}
+                            title="点击编辑标题"
+                          >
+                            {session.title}
+                          </h3>
+                          <button
+                            onClick={(e) => startEditingSession(session, e)}
+                            className="p-1 text-gray-400 hover:text-blue-600 opacity-0 group-hover:opacity-100 transition-all duration-200"
+                            title="编辑标题"
+                          >
+                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                            </svg>
+                          </button>
+                        </div>
+                      )}
                       <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
                         {new Date(session.updated_at).toLocaleDateString()}
                       </p>
@@ -388,8 +498,66 @@ const Chat: React.FC = () => {
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex-1 min-w-0">
-                      <h3 className="font-medium text-gray-900 truncate">{session.title}</h3>
-                      <p className="text-sm text-gray-500 mt-1">
+                      {editingSessionId === session.id ? (
+                        // 编辑模式
+                        <div className="flex items-center space-x-2">
+                          <input
+                            type="text"
+                            value={editingTitle}
+                            onChange={(e) => setEditingTitle(e.target.value)}
+                            onKeyDown={handleEditKeyPress}
+                            onBlur={saveSessionTitle}
+                            className="flex-1 px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                            autoFocus
+                            disabled={updatingSession}
+                          />
+                          <button
+                            onClick={saveSessionTitle}
+                            disabled={updatingSession}
+                            className="p-1 text-green-600 hover:text-green-700 disabled:opacity-50"
+                            title="保存"
+                          >
+                            {updatingSession ? (
+                              <div className="animate-spin w-3 h-3 border border-green-600 border-t-transparent rounded-full"></div>
+                            ) : (
+                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                              </svg>
+                            )}
+                          </button>
+                          <button
+                            onClick={cancelEditingSession}
+                            disabled={updatingSession}
+                            className="p-1 text-gray-400 hover:text-gray-600 disabled:opacity-50"
+                            title="取消"
+                          >
+                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </button>
+                        </div>
+                      ) : (
+                        // 显示模式
+                        <div className="flex items-center space-x-2">
+                          <h3
+                            className="font-medium text-gray-900 dark:text-white truncate cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 transition-colors duration-200"
+                            onClick={(e) => startEditingSession(session, e)}
+                            title="点击编辑标题"
+                          >
+                            {session.title}
+                          </h3>
+                          <button
+                            onClick={(e) => startEditingSession(session, e)}
+                            className="p-1 text-gray-400 hover:text-blue-600 opacity-0 group-hover:opacity-100 transition-all duration-200"
+                            title="编辑标题"
+                          >
+                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                            </svg>
+                          </button>
+                        </div>
+                      )}
+                      <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
                         {new Date(session.updated_at).toLocaleDateString()}
                       </p>
                     </div>

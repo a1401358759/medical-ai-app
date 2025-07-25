@@ -16,7 +16,7 @@ sentence-transformers==2.2.2
 faiss-cpu==1.7.4
 pypdf==5.8.0
 python-docx==1.1.0
-aiofiles==23.2.1
+aiofiles==24.1.0
 httpx==0.25.2
 # 支持其他 AI 模型
 langchain-deepseek

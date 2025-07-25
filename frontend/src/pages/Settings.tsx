@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Cog6ToothIcon, CheckIcon, ExclamationTriangleIcon, XMarkIcon } from '@heroicons/react/24/outline';
+import { Cog6ToothIcon, CheckIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
 import Layout from '../components/Layout';
 import { userAPI } from '../services/api';
 import { UserSettings } from '../types';

@@ -6,7 +6,13 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.chat import ChatMessage, ChatSession
 from app.models.user import User
-from app.schemas.chat import ChatMessageCreate, ChatMessageResponse, ChatSessionCreate, ChatSessionResponse
+from app.schemas.chat import (
+    ChatMessageCreate,
+    ChatMessageResponse,
+    ChatSessionCreate,
+    ChatSessionResponse,
+    ChatSessionUpdate,
+)
 from app.services.ai_service import ai_service
 from app.utils.auth import get_current_active_user
 
@@ -113,6 +119,30 @@ def delete_chat_session(
         raise HTTPException(status_code=500, detail=f"删除会话失败: {e!s}")
 
 
+@router.put("/sessions/{session_id}", response_model=ChatSessionResponse)
+def update_chat_session(
+    session_id: int,
+    session_update: ChatSessionUpdate,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    # 验证会话所有权
+    session = db.query(ChatSession).filter(
+        ChatSession.id == session_id,
+        ChatSession.user_id == current_user.id
+    ).first()
+
+    if not session:
+        raise HTTPException(status_code=404, detail="会话不存在")
+
+    # 更新会话标题
+    session.title = session_update.title
+    db.commit()
+    db.refresh(session)
+
+    return session
+
+
 @router.post("/messages", response_model=ChatMessageResponse)
 async def create_chat_message(
     message: ChatMessageCreate,
@@ -147,7 +177,7 @@ async def create_chat_message(
     user_ai_service = ai_service.create_user_ai_service(current_user.settings)
 
     # 获取AI回复
-    ai_response = await user_ai_service.chat(context + [{"role": "user", "content": message.content}])
+    ai_response = await user_ai_service.chat([*context, {"role": "user", "content": message.content}])
 
     # 保存AI回复
     ai_message = ChatMessage(
