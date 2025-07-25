@@ -19,8 +19,24 @@ const Chat: React.FC = () => {
   const [showSessionList, setShowSessionList] = useState(false);
   const [uploadingReport, setUploadingReport] = useState(false);
   const [user, setUser] = useState<User | null>(null);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // 从localStorage加载侧边栏状态
+  useEffect(() => {
+    const savedState = localStorage.getItem('chatSidebarCollapsed');
+    if (savedState !== null) {
+      setSidebarCollapsed(JSON.parse(savedState));
+    }
+  }, []);
+
+  // 保存侧边栏状态到localStorage
+  const toggleSidebar = () => {
+    const newState = !sidebarCollapsed;
+    setSidebarCollapsed(newState);
+    localStorage.setItem('chatSidebarCollapsed', JSON.stringify(newState));
+  };
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -224,15 +240,36 @@ const Chat: React.FC = () => {
       <div className="absolute inset-0 flex justify-center overflow-hidden" style={{ top: '64px' }}>
         <div className="flex w-full h-full overflow-hidden">
         {/* 会话列表侧边栏 */}
-        <div className="hidden lg:flex w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex-col">
+        <div className={`hidden lg:flex bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex-col transition-all duration-300 ease-in-out ${
+          sidebarCollapsed ? 'w-16' : 'w-64'
+        }`}>
           <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-            <button
-              onClick={createNewSession}
-              disabled={creatingSession}
-              className="w-full px-4 py-2 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-lg hover:from-blue-700 hover:to-cyan-700 disabled:opacity-50 transition-all duration-200 font-medium"
-            >
-              {creatingSession ? '创建中...' : '新对话'}
-            </button>
+            {!sidebarCollapsed ? (
+              // 展开状态：显示完整按钮
+              <button
+                onClick={createNewSession}
+                disabled={creatingSession}
+                className="w-full px-4 py-2 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-lg hover:from-blue-700 hover:to-cyan-700 disabled:opacity-50 transition-all duration-200 font-medium"
+              >
+                {creatingSession ? '创建中...' : '新对话'}
+              </button>
+            ) : (
+              // 收起状态：显示图标按钮
+              <button
+                onClick={createNewSession}
+                disabled={creatingSession}
+                className="w-full p-2 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-lg hover:from-blue-700 hover:to-cyan-700 disabled:opacity-50 transition-all duration-200 flex items-center justify-center"
+                title="新建对话"
+              >
+                {creatingSession ? (
+                  <div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full"></div>
+                ) : (
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                )}
+              </button>
+            )}
           </div>
 
           <div className="flex-1 overflow-y-auto">
@@ -240,29 +277,69 @@ const Chat: React.FC = () => {
               <div
                 key={session.id}
                 onClick={() => setCurrentSession(session)}
-                                    className={`p-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200 group ${
-                      currentSession?.id === session.id ? 'bg-blue-50 dark:bg-blue-900/20 border-r-2 border-blue-500' : ''
-                    }`}
+                className={`cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200 group ${
+                  currentSession?.id === session.id ? 'bg-blue-50 dark:bg-blue-900/20 border-r-2 border-blue-500' : ''
+                } ${sidebarCollapsed ? 'p-2' : 'p-4'}`}
+                title={sidebarCollapsed ? session.title : undefined}
               >
-                <div className="flex items-center justify-between">
-                  <div className="flex-1 min-w-0">
-                    <h3 className="font-medium text-gray-900 dark:text-white truncate">{session.title}</h3>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                      {new Date(session.updated_at).toLocaleDateString()}
-                    </p>
+                {sidebarCollapsed ? (
+                  // 收起状态：只显示图标
+                  <div className="flex flex-col items-center">
+                    <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full flex items-center justify-center mb-1">
+                      <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 12H6v-2h12v2zm0-3H6V9h12v2zm0-3H6V6h12v2z"/>
+                      </svg>
+                    </div>
+                    <div className="w-1 h-1 bg-gray-400 rounded-full"></div>
                   </div>
-                  <button
-                    onClick={(e) => showDeleteConfirm(session, e)}
-                    className="ml-2 p-1 text-gray-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-all duration-200"
-                    title="删除对话"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
-                  </button>
-                </div>
+                ) : (
+                  // 展开状态：显示完整信息
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-medium text-gray-900 dark:text-white truncate">{session.title}</h3>
+                      <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                        {new Date(session.updated_at).toLocaleDateString()}
+                      </p>
+                    </div>
+                    <button
+                      onClick={(e) => showDeleteConfirm(session, e)}
+                      className="ml-2 p-1 text-gray-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-all duration-200"
+                      title="删除对话"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
+                  </div>
+                )}
               </div>
             ))}
+          </div>
+
+          {/* 侧边栏底部收起/展开按钮 */}
+          <div className="border-t border-gray-200 dark:border-gray-700 p-2">
+            <button
+              onClick={toggleSidebar}
+              className={`w-full py-1.5 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-all duration-200 flex items-center justify-center ${
+                sidebarCollapsed ? 'px-1' : 'px-3'
+              }`}
+              title={sidebarCollapsed ? '展开侧边栏' : '收起侧边栏'}
+            >
+              {sidebarCollapsed ? (
+                // 现代双箭头展开图标
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                </svg>
+              ) : (
+                <>
+                  {/* 现代双箭头收起图标 */}
+                  <svg className="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+                  </svg>
+                  <span className="text-sm font-medium">收起</span>
+                </>
+              )}
+            </button>
           </div>
         </div>
 
@@ -281,10 +358,12 @@ const Chat: React.FC = () => {
             </button>
           </div>
 
-          {/* 移动端会话列表 */}
+
+
+                    {/* 移动端会话列表 */}
           {showSessionList && (
             <div className="lg:hidden bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 max-h-64 overflow-y-auto">
-                              <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+              <div className="p-4 border-b border-gray-200 dark:border-gray-700">
                 <button
                   onClick={createNewSession}
                   disabled={creatingSession}
@@ -298,7 +377,10 @@ const Chat: React.FC = () => {
                   key={session.id}
                   onClick={() => {
                     setCurrentSession(session);
-                    setShowSessionList(false);
+                    // 只在移动端关闭会话列表
+                    if (window.innerWidth < 1024) {
+                      setShowSessionList(false);
+                    }
                   }}
                   className={`p-4 cursor-pointer hover:bg-gray-50 transition-colors duration-200 ${
                     currentSession?.id === session.id ? 'bg-blue-50 border-l-4 border-blue-500' : ''

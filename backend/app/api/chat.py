@@ -143,8 +143,11 @@ async def create_chat_message(
     db.add(user_message)
     db.commit()
 
+    # 根据用户设置创建AI服务实例
+    user_ai_service = ai_service.create_user_ai_service(current_user.settings)
+
     # 获取AI回复
-    ai_response = await ai_service.chat(current_user.id, message.content, context)
+    ai_response = await user_ai_service.chat(context + [{"role": "user", "content": message.content}])
 
     # 保存AI回复
     ai_message = ChatMessage(

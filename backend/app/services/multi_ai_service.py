@@ -32,13 +32,13 @@ class BaseAIService(ABC):
 class OpenAIService(BaseAIService):
     """OpenAI 服务"""
 
-    def __init__(self):
+    def __init__(self, api_key=None, base_url=None):
         from langchain_openai import ChatOpenAI
         self.llm = ChatOpenAI(
             model="gpt-4",
             temperature=0.7,
-            openai_api_key=os.getenv("OPENAI_API_KEY"),
-            openai_api_base=os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1")
+            openai_api_key=api_key or os.getenv("OPENAI_API_KEY"),
+            openai_api_base=base_url or os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1")
         )
 
     async def chat(self, messages: List[Dict[str, str]]) -> str:
@@ -84,13 +84,13 @@ class OpenAIService(BaseAIService):
 class DeepSeekService(BaseAIService):
     """DeepSeek 服务"""
 
-    def __init__(self):
+    def __init__(self, api_key=None, base_url=None):
         from langchain_openai import ChatOpenAI
         self.llm = ChatOpenAI(
             model="deepseek-chat",
             temperature=0.7,
-            openai_api_key=os.getenv("DEEPSEEK_API_KEY"),
-            openai_api_base=os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com/v1")
+            openai_api_key=api_key or os.getenv("DEEPSEEK_API_KEY"),
+            openai_api_base=base_url or os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com/v1")
         )
 
     async def chat(self, messages: List[Dict[str, str]]) -> str:
@@ -136,12 +136,12 @@ class DeepSeekService(BaseAIService):
 class AnthropicService(BaseAIService):
     """Anthropic (Claude) 服务"""
 
-    def __init__(self):
+    def __init__(self, api_key=None):
         from langchain_anthropic import ChatAnthropic
         self.llm = ChatAnthropic(
             model="claude-3-sonnet-20240229",
             temperature=0.7,
-            anthropic_api_key=os.getenv("ANTHROPIC_API_KEY")
+            anthropic_api_key=api_key or os.getenv("ANTHROPIC_API_KEY")
         )
 
     async def chat(self, messages: List[Dict[str, str]]) -> str:
@@ -187,13 +187,13 @@ class AnthropicService(BaseAIService):
 class KimiService(BaseAIService):
     """Kimi 服务 (通过 Moonshot API)"""
 
-    def __init__(self):
+    def __init__(self, api_key=None, base_url=None):
         from langchain_openai import ChatOpenAI
         self.llm = ChatOpenAI(
             model="moonshot-v1-8k",
             temperature=0.7,
-            openai_api_key=os.getenv("KIMI_API_KEY"),
-            openai_api_base=os.getenv("KIMI_BASE_URL", "https://api.moonshot.cn/v1")
+            openai_api_key=api_key or os.getenv("KIMI_API_KEY"),
+            openai_api_base=base_url or os.getenv("KIMI_BASE_URL", "https://api.moonshot.cn/v1")
         )
 
     async def chat(self, messages: List[Dict[str, str]]) -> str:
@@ -297,6 +297,38 @@ class MultiAIService:
         else:
             print(f"未知的模型类型: {self.model_type}，使用模拟服务")
             self.ai_service = MockAIService()
+
+    def create_user_ai_service(self, user_settings: dict):
+        """根据用户设置创建AI服务实例"""
+        if not user_settings:
+            return self.ai_service
+
+        preferred_model = user_settings.get("preferred_model", "openai")
+        api_keys = user_settings.get("api_keys", {})
+        base_urls = user_settings.get("base_urls", {})
+
+        if preferred_model == "openai":
+            api_key = api_keys.get("openai") or os.getenv("OPENAI_API_KEY")
+            base_url = base_urls.get("openai") or os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1")
+            if api_key:
+                return OpenAIService(api_key, base_url)
+        elif preferred_model == "deepseek":
+            api_key = api_keys.get("deepseek") or os.getenv("DEEPSEEK_API_KEY")
+            base_url = base_urls.get("deepseek") or os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com/v1")
+            if api_key:
+                return DeepSeekService(api_key, base_url)
+        elif preferred_model == "anthropic":
+            api_key = api_keys.get("anthropic") or os.getenv("ANTHROPIC_API_KEY")
+            if api_key:
+                return AnthropicService(api_key)
+        elif preferred_model == "kimi":
+            api_key = api_keys.get("kimi") or os.getenv("KIMI_API_KEY")
+            base_url = base_urls.get("kimi") or os.getenv("KIMI_BASE_URL", "https://api.moonshot.cn/v1")
+            if api_key:
+                return KimiService(api_key, base_url)
+
+        # 如果用户设置无效或没有API密钥，返回默认服务
+        return self.ai_service
 
     def get_memory(self, user_id: int) -> ConversationBufferMemory:
         if user_id not in self.memories:

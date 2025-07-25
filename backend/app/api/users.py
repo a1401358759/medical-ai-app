@@ -1,4 +1,5 @@
 import shutil
+from datetime import datetime
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
@@ -7,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models.user import User
-from app.schemas.user import UserResponse
+from app.schemas.user import UserResponse, UserSettingsUpdate
 from app.utils.auth import get_current_active_user
 
 router = APIRouter()
@@ -18,12 +19,88 @@ def read_users_me(current_user: User = Depends(get_current_active_user)):
     return current_user
 
 
-@router.get("/{user_id}", response_model=UserResponse)
-def read_user(user_id: int, db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.id == user_id).first()
-    if user is None:
-        raise HTTPException(status_code=404, detail="用户不存在")
-    return user
+@router.get("/settings")
+def get_user_settings(
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """获取用户设置"""
+    if not current_user.settings:
+        # 如果用户没有设置，返回默认设置
+        default_settings = {
+            "preferred_model": "openai",
+            "api_keys": {
+                "openai": "",
+                "deepseek": "",
+                "anthropic": "",
+                "kimi": ""
+            },
+            "base_urls": {
+                "openai": "https://api.openai.com/v1",
+                "deepseek": "https://api.deepseek.com/v1",
+                "anthropic": "",
+                "kimi": "https://api.moonshot.cn/v1"
+            }
+        }
+        current_user.settings = default_settings
+        db.commit()
+        db.refresh(current_user)
+
+    return current_user.settings
+
+
+@router.put("/settings")
+def update_user_settings(
+    settings: UserSettingsUpdate,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """更新用户设置"""
+    # 直接替换整个设置对象
+    current_user.settings = {
+        "preferred_model": settings.preferred_model,
+        "api_keys": settings.api_keys,
+        "base_urls": settings.base_urls
+    }
+
+    current_user.updated_at = datetime.utcnow()
+    db.commit()
+    db.refresh(current_user)
+
+    return {"message": "设置更新成功", "settings": current_user.settings}
+
+
+@router.get("/available-models")
+def get_available_models():
+    """获取可用的AI模型列表"""
+    return {
+        "models": [
+            {
+                "id": "openai",
+                "name": "OpenAI GPT-4",
+                "description": "OpenAI的GPT-4模型，提供强大的自然语言处理能力",
+                "base_url": "https://api.openai.com/v1"
+            },
+            {
+                "id": "deepseek",
+                "name": "DeepSeek Chat",
+                "description": "DeepSeek的聊天模型，支持中文对话",
+                "base_url": "https://api.deepseek.com/v1"
+            },
+            {
+                "id": "anthropic",
+                "name": "Anthropic Claude",
+                "description": "Anthropic的Claude模型，注重安全性和准确性",
+                "base_url": None
+            },
+            {
+                "id": "kimi",
+                "name": "Kimi (Moonshot)",
+                "description": "通过Moonshot API访问的Kimi模型",
+                "base_url": "https://api.moonshot.cn/v1"
+            }
+        ]
+    }
 
 
 # 创建头像存储目录
@@ -70,3 +147,11 @@ async def get_avatar(filename: str):
     if not file_path.exists():
         raise HTTPException(status_code=404, detail="头像文件不存在")
     return FileResponse(file_path)
+
+
+@router.get("/{user_id}", response_model=UserResponse)
+def read_user(user_id: int, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.id == user_id).first()
+    if user is None:
+        raise HTTPException(status_code=404, detail="用户不存在")
+    return user

@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { User, ChatSession, ChatMessage, MedicalReport, LoginForm, RegisterForm, AuthResponse } from '../types';
+import { User, ChatSession, ChatMessage, MedicalReport, LoginForm, RegisterForm, AuthResponse, UserSettings } from '../types';
 
 const API_BASE_URL = 'http://localhost:8000/api';
 
@@ -55,6 +55,15 @@ export const userAPI = {
       },
     }).then(res => res.data);
   },
+
+  getSettings: (): Promise<UserSettings> =>
+    api.get('/users/settings').then(res => res.data),
+
+  updateSettings: (settings: UserSettings): Promise<any> =>
+    api.put('/users/settings', settings).then(res => res.data),
+
+  getAvailableModels: (): Promise<any> =>
+    api.get('/users/available-models').then(res => res.data),
 };
 
 // 聊天相关 API

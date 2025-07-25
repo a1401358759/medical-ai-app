@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Bars3Icon, ChevronDownIcon, UserIcon, SunIcon, MoonIcon } from '@heroicons/react/24/outline';
+import { Bars3Icon, ChevronDownIcon, UserIcon, SunIcon, MoonIcon, Cog6ToothIcon } from '@heroicons/react/24/outline';
 import { useDarkMode } from '../contexts/DarkModeContext';
 import { userAPI } from '../services/api';
 import { User } from '../types';
@@ -151,6 +151,14 @@ const Layout: React.FC<LayoutProps> = ({ children, fullWidth = false }) => {
                     <UserIcon className="w-4 h-4 mr-3" />
                     个人资料
                   </Link>
+                  <Link
+                    to="/settings"
+                    onClick={() => setUserMenuOpen(false)}
+                    className="flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200"
+                  >
+                    <Cog6ToothIcon className="w-4 h-4 mr-3" />
+                    设置
+                  </Link>
                   <button
                     onClick={() => {
                       setUserMenuOpen(false);
@@ -189,9 +197,9 @@ const Layout: React.FC<LayoutProps> = ({ children, fullWidth = false }) => {
       </div>
 
       {/* 主内容区域 */}
-      <div className={fullWidth ? "" : "lg:pl-64"} style={{ paddingTop: '64px', height: 'calc(100vh - 64px)' }}>
-        <main className={fullWidth ? "h-full overflow-hidden" : "py-6"}>
-          <div className={fullWidth ? "h-full w-full overflow-hidden" : "mx-auto max-w-7xl px-4 sm:px-6 lg:px-8"}>
+      <div className={fullWidth ? "" : "lg:pl-64"} style={{ paddingTop: fullWidth ? '16px' : '64px', height: 'calc(100vh - 64px)' }}>
+        <main className={fullWidth ? "h-full overflow-y-auto" : "py-6"}>
+          <div className={fullWidth ? "h-full w-full" : "mx-auto max-w-7xl px-4 sm:px-6 lg:px-8"}>
             {children}
           </div>
         </main>

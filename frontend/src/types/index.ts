@@ -8,6 +8,22 @@ export interface User {
   created_at: string;
 }
 
+export interface UserSettings {
+  preferred_model: string;
+  api_keys: {
+    openai: string;
+    deepseek: string;
+    anthropic: string;
+    kimi: string;
+  };
+  base_urls: {
+    openai: string;
+    deepseek: string;
+    anthropic: string;
+    kimi: string;
+  };
+}
+
 export interface ChatSession {
   id: number;
   title: string;
