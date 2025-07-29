@@ -6,7 +6,6 @@ import Layout from '../components/Layout';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useUser } from '../contexts/UserContext';
-import { useDebounce } from '../hooks';
 
 const Chat: React.FC = () => {
   const [sessions, setSessions] = useState<ChatSession[]>([]);
@@ -26,10 +25,10 @@ const Chat: React.FC = () => {
   const [updatingSession, setUpdatingSession] = useState(false);
   const [showCopySuccess, setShowCopySuccess] = useState(false);
   const [regeneratingMessageId, setRegeneratingMessageId] = useState<number | null>(null);
-  const [isLoadingSessions, setIsLoadingSessions] = useState(false);
-  const [isLoadingMessages, setIsLoadingMessages] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const isLoadingSessionsRef = useRef(false);
+  const isLoadingMessagesRef = useRef(false);
   const { user } = useUser();
 
   // 从localStorage加载侧边栏状态
@@ -51,50 +50,54 @@ const Chat: React.FC = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  const loadSessions = useCallback(async () => {
-    if (isLoadingSessions) return; // 防止重复请求
+  const loadMessages = useCallback(async (sessionId: number) => {
+    if (isLoadingMessagesRef.current) return; // 使用ref防止重复请求
 
-    setIsLoadingSessions(true);
-    try {
-      const data = await chatAPI.getSessions();
-      setSessions(data);
-      if (data.length > 0 && !currentSession) {
-        setCurrentSession(data[0]);
-      }
-    } catch (error) {
-      console.error('加载会话失败:', error);
-    } finally {
-      setIsLoadingSessions(false);
-    }
-  }, [currentSession, isLoadingSessions]); // 添加 isLoadingSessions 依赖
-
-  useEffect(() => {
-    loadSessions();
-  }, []); // 只在组件挂载时执行一次
-
-  useEffect(() => {
-    if (currentSession) {
-      loadMessages(currentSession.id);
-    }
-  }, [currentSession?.id]); // 只依赖 session ID，避免对象引用变化导致的重复请求
-
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
-
-  const loadMessages = async (sessionId: number) => {
-    if (isLoadingMessages) return; // 防止重复请求
-
-    setIsLoadingMessages(true);
+    isLoadingMessagesRef.current = true;
     try {
       const data = await chatAPI.getMessages(sessionId);
       setMessages(data);
     } catch (error) {
       console.error('加载消息失败:', error);
     } finally {
-      setIsLoadingMessages(false);
+      isLoadingMessagesRef.current = false;
     }
-  };
+  }, []); // 空依赖数组
+
+  const loadSessions = useCallback(async () => {
+    if (isLoadingSessionsRef.current) return; // 使用ref防止重复请求
+
+    isLoadingSessionsRef.current = true;
+    try {
+      const data = await chatAPI.getSessions();
+      setSessions(data);
+      // 只在没有当前会话且有会话数据时设置第一个会话
+      if (data.length > 0 && !currentSession) {
+        setCurrentSession(data[0]);
+      }
+    } catch (error) {
+      console.error('加载会话失败:', error);
+    } finally {
+      isLoadingSessionsRef.current = false;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // 空依赖数组
+
+  useEffect(() => {
+    loadSessions();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // 只在组件挂载时执行一次
+
+  useEffect(() => {
+    if (currentSession) {
+      loadMessages(currentSession.id);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentSession?.id]); // 只依赖 session ID
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
 
   const createNewSession = async () => {
     setCreatingSession(true);
@@ -805,7 +808,7 @@ const Chat: React.FC = () => {
                     value={inputMessage}
                     onChange={(e) => setInputMessage(e.target.value)}
                     onKeyPress={handleKeyPress}
-                    placeholder="输入您的医疗问题..."
+                    placeholder="输入您的问题..."
                     className="flex-1 px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
                     disabled={loading || uploadingReport}
                   />
@@ -855,7 +858,7 @@ const Chat: React.FC = () => {
                       value={inputMessage}
                       onChange={(e) => setInputMessage(e.target.value)}
                       onKeyPress={handleKeyPress}
-                      placeholder="输入您的医疗问题..."
+                      placeholder="输入您的问题..."
                       className="flex-1 px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
                       disabled={loading || uploadingReport}
                     />

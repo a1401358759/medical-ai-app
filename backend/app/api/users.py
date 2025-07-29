@@ -63,7 +63,7 @@ def update_user_settings(
         "base_urls": settings.base_urls
     }
 
-    current_user.updated_at = datetime.utcnow()
+    current_user.updated_at = datetime.now()
     db.commit()
     db.refresh(current_user)
 

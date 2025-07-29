@@ -47,7 +47,7 @@ def get_chat_sessions(
     # 修复任何updated_at为None的会话
     for session in sessions:
         if session.updated_at is None:
-            session.updated_at = session.created_at or datetime.utcnow()
+            session.updated_at = session.created_at or datetime.now()
 
     db.commit()
     return sessions
@@ -70,7 +70,7 @@ def get_chat_session(
 
     # 修复updated_at为None的情况
     if session.updated_at is None:
-        session.updated_at = session.created_at or datetime.utcnow()
+        session.updated_at = session.created_at or datetime.now()
         db.commit()
 
     return session
@@ -162,7 +162,7 @@ async def create_chat_message(
         # 更新会话的 updated_at 字段
         session = db.query(ChatSession).filter(ChatSession.id == message.session_id).first()
         if session:
-            session.updated_at = datetime.utcnow()
+            session.updated_at = datetime.now()
 
     # 保存用户消息
     user_message = ChatMessage(
@@ -261,10 +261,10 @@ async def regenerate_chat_message(
 
     # 更新AI消息内容
     ai_message.content = ai_response
-    ai_message.created_at = datetime.utcnow()
+    ai_message.created_at = datetime.now()
 
     # 更新会话的 updated_at 字段
-    session.updated_at = datetime.utcnow()
+    session.updated_at = datetime.now()
 
     db.commit()
     db.refresh(ai_message)

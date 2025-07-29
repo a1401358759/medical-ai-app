@@ -105,7 +105,7 @@ async def upload_report(
     db.add(ai_message)
 
     # 更新会话时间
-    session.updated_at = datetime.utcnow()
+    session.updated_at = datetime.now()
 
     db.commit()
     db.refresh(ai_message)

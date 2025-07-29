@@ -28,5 +28,6 @@ class ChatMessage(Base):
     filename = Column(String, nullable=True)  # 文件名（用于报告上传）
     file_path = Column(String, nullable=True)  # 文件路径（用于报告上传）
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
 
     session = relationship("ChatSession", back_populates="messages")
