@@ -1,6 +1,6 @@
 import os
 from abc import ABC, abstractmethod
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 from dotenv import load_dotenv
 from langchain.memory import ConversationBufferMemory
@@ -57,23 +57,7 @@ class OpenAIService(BaseAIService):
         except Exception as e:
             return f"OpenAI 服务错误：{e!s}"
 
-    async def analyze_report(self, content: str) -> str:
-        analysis_prompt = f"""
-        请分析以下医疗报告内容，并提供专业的解读和建议：
-
-        报告内容：
-        {content}
-
-        请从以下方面进行分析：
-        1. 报告类型和主要指标
-        2. 异常值的识别
-        3. 可能的健康风险
-        4. 建议的后续检查
-        5. 生活方式建议
-
-        注意：这只是初步分析，最终诊断需要专业医生确认。
-        """
-
+    async def analyze_report(self, analysis_prompt: str) -> str:
         try:
             response = await self.llm.ainvoke([HumanMessage(content=analysis_prompt)])
             return response.content
@@ -109,23 +93,7 @@ class DeepSeekService(BaseAIService):
         except Exception as e:
             return f"DeepSeek 服务错误：{e!s}"
 
-    async def analyze_report(self, content: str) -> str:
-        analysis_prompt = f"""
-        请分析以下医疗报告内容，并提供专业的解读和建议：
-
-        报告内容：
-        {content}
-
-        请从以下方面进行分析：
-        1. 报告类型和主要指标
-        2. 异常值的识别
-        3. 可能的健康风险
-        4. 建议的后续检查
-        5. 生活方式建议
-
-        注意：这只是初步分析，最终诊断需要专业医生确认。
-        """
-
+    async def analyze_report(self, analysis_prompt: str) -> str:
         try:
             response = await self.llm.ainvoke([HumanMessage(content=analysis_prompt)])
             return response.content
@@ -160,23 +128,7 @@ class AnthropicService(BaseAIService):
         except Exception as e:
             return f"Anthropic 服务错误：{e!s}"
 
-    async def analyze_report(self, content: str) -> str:
-        analysis_prompt = f"""
-        请分析以下医疗报告内容，并提供专业的解读和建议：
-
-        报告内容：
-        {content}
-
-        请从以下方面进行分析：
-        1. 报告类型和主要指标
-        2. 异常值的识别
-        3. 可能的健康风险
-        4. 建议的后续检查
-        5. 生活方式建议
-
-        注意：这只是初步分析，最终诊断需要专业医生确认。
-        """
-
+    async def analyze_report(self, analysis_prompt: str) -> str:
         try:
             response = await self.llm.ainvoke([HumanMessage(content=analysis_prompt)])
             return response.content
@@ -212,23 +164,7 @@ class KimiService(BaseAIService):
         except Exception as e:
             return f"Kimi 服务错误：{e!s}"
 
-    async def analyze_report(self, content: str) -> str:
-        analysis_prompt = f"""
-        请分析以下医疗报告内容，并提供专业的解读和建议：
-
-        报告内容：
-        {content}
-
-        请从以下方面进行分析：
-        1. 报告类型和主要指标
-        2. 异常值的识别
-        3. 可能的健康风险
-        4. 建议的后续检查
-        5. 生活方式建议
-
-        注意：这只是初步分析，最终诊断需要专业医生确认。
-        """
-
+    async def analyze_report(self, analysis_prompt: str) -> str:
         try:
             response = await self.llm.ainvoke([HumanMessage(content=analysis_prompt)])
             return response.content
@@ -248,15 +184,15 @@ class MockAIService(BaseAIService):
             "建议您进行相关的医学检查，如血液检查、影像学检查等。"
         ]
 
-    async def chat(self, messages: List[Dict[str, str]]) -> str:
+    async def chat(self, messages: List[Dict[str, str]]) -> str:  # noqa: ARG002
         import random
         return random.choice(self.medical_responses)
 
-    async def analyze_report(self, content: str) -> str:
+    async def analyze_report(self, analysis_prompt: str) -> str:
         return f"""
         模拟报告分析结果：
 
-        报告内容摘要：{content[:100]}...
+        报告内容摘要：{analysis_prompt[:100]}...
 
         分析建议：
         1. 建议咨询专业医生进行详细解读
@@ -272,7 +208,7 @@ class MultiAIService:
     """多模型 AI 服务管理器"""
 
     def __init__(self):
-        self.model_type = os.getenv("AI_MODEL", "openai").lower()
+        self.model_type = "mock"
         # 只有在非 mock 模式下才初始化 embeddings
         if self.model_type != "mock":
             try:
@@ -284,19 +220,7 @@ class MultiAIService:
             self.embeddings = None
         self.memories: Dict[int, ConversationBufferMemory] = {}
         self.vector_store = None
-
-        # 初始化对应的 AI 服务
-        if self.model_type == "openai":
-            self.ai_service = OpenAIService()
-        elif self.model_type == "deepseek":
-            self.ai_service = DeepSeekService()
-        elif self.model_type == "anthropic":
-            self.ai_service = AnthropicService()
-        elif self.model_type == "kimi":
-            self.ai_service = KimiService()
-        else:
-            print(f"未知的模型类型: {self.model_type}，使用模拟服务")
-            self.ai_service = MockAIService()
+        self.ai_service = MockAIService()
 
     def create_user_ai_service(self, user_settings: dict):
         """根据用户设置创建AI服务实例"""
@@ -304,6 +228,7 @@ class MultiAIService:
             return self.ai_service
 
         preferred_model = user_settings.get("preferred_model", "openai")
+        print(f"当前用户首选模型：{preferred_model}")
         api_keys = user_settings.get("api_keys", {})
         base_urls = user_settings.get("base_urls", {})
 
@@ -311,21 +236,21 @@ class MultiAIService:
             api_key = api_keys.get("openai") or os.getenv("OPENAI_API_KEY")
             base_url = base_urls.get("openai") or os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1")
             if api_key:
-                return OpenAIService(api_key, base_url)
+                self.ai_service = OpenAIService(api_key, base_url)
         elif preferred_model == "deepseek":
             api_key = api_keys.get("deepseek") or os.getenv("DEEPSEEK_API_KEY")
             base_url = base_urls.get("deepseek") or os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com/v1")
             if api_key:
-                return DeepSeekService(api_key, base_url)
+                self.ai_service = DeepSeekService(api_key, base_url)
         elif preferred_model == "anthropic":
             api_key = api_keys.get("anthropic") or os.getenv("ANTHROPIC_API_KEY")
             if api_key:
-                return AnthropicService(api_key)
+                self.ai_service = AnthropicService(api_key)
         elif preferred_model == "kimi":
             api_key = api_keys.get("kimi") or os.getenv("KIMI_API_KEY")
             base_url = base_urls.get("kimi") or os.getenv("KIMI_BASE_URL", "https://api.moonshot.cn/v1")
             if api_key:
-                return KimiService(api_key, base_url)
+                self.ai_service = KimiService(api_key, base_url)
 
         # 如果用户设置无效或没有API密钥，返回默认服务
         return self.ai_service
@@ -348,7 +273,7 @@ class MultiAIService:
 
         请记住：你的建议不能替代专业医疗诊断。"""
 
-    async def chat(self, user_id: int, message: str, context: List[Dict] = None) -> str:
+    async def chat(self, message: str, context: Optional[List[Dict]] = None) -> str:
         # 构建消息列表
         messages = [{"role": "system", "content": self.create_medical_context()}]
 
@@ -363,8 +288,23 @@ class MultiAIService:
         # 调用对应的 AI 服务
         return await self.ai_service.chat(messages)
 
-    async def analyze_report(self, file_content: str, file_type: str = None) -> str:
-        return await self.ai_service.analyze_report(file_content)
+    async def analyze_report(self, file_content: str) -> str:
+        analysis_prompt = f"""
+        请分析以下医疗报告内容，并提供专业的解读和建议：
+
+        报告内容：
+        {file_content}
+
+        请从以下方面进行分析：
+        1. 报告类型和主要指标
+        2. 异常值的识别
+        3. 可能的健康风险
+        4. 建议的后续检查
+        5. 生活方式建议
+
+        注意：这只是初步分析，最终诊断需要专业医生确认。
+        """
+        return await self.ai_service.analyze_report(analysis_prompt)
 
     def process_document(self, file_path: str, file_type: str) -> str:
         """处理上传的文档"""

@@ -11,7 +11,7 @@ from app.database import get_db
 from app.models.chat import ChatMessage, ChatSession
 from app.models.user import User
 from app.schemas.chat import ChatMessageResponse
-from app.services.ai_service import ai_service
+from app.services.multi_ai_service import ai_service
 from app.utils.auth import get_current_active_user
 
 router = APIRouter()
@@ -65,6 +65,9 @@ async def upload_report(
     # 处理文档内容
     file_type = "pdf" if file.content_type == "application/pdf" else "docx"
     try:
+        # 根据用户设置创建AI服务实例
+        ai_service.create_user_ai_service(current_user.settings)
+        # 获取文档内容
         document_content = ai_service.process_document(file_path, file_type)
         if not document_content or document_content.startswith("文档处理失败"):
             raise Exception("文档处理失败")

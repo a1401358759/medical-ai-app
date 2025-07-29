@@ -27,3 +27,4 @@ langchain-deepseek
 langchain-anthropic
 anthropic
 requests==2.31.0
+socksio==1.0.0

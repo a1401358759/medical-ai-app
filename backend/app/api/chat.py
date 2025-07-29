@@ -1,6 +1,7 @@
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import delete, select, update
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -13,7 +14,7 @@ from app.schemas.chat import (
     ChatSessionResponse,
     ChatSessionUpdate,
 )
-from app.services.ai_service import ai_service
+from app.services.multi_ai_service import ai_service
 from app.utils.auth import get_current_active_user
 
 router = APIRouter()
@@ -40,16 +41,8 @@ def get_chat_sessions(
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
-    from datetime import datetime
 
     sessions = db.query(ChatSession).filter(ChatSession.user_id == current_user.id).all()
-
-    # 修复任何updated_at为None的会话
-    for session in sessions:
-        if session.updated_at is None:
-            session.updated_at = session.created_at or datetime.now()
-
-    db.commit()
     return sessions
 
 
@@ -86,10 +79,11 @@ def delete_chat_session(
         print(f"开始删除会话 {session_id}")
 
         # 验证会话所有权
-        session = db.query(ChatSession).filter(
+        stmt = select(ChatSession).where(
             ChatSession.id == session_id,
             ChatSession.user_id == current_user.id
-        ).first()
+        )
+        session = db.execute(stmt).scalars().first()
 
         if not session:
             print(f"会话 {session_id} 不存在或不属于当前用户")
@@ -98,17 +92,13 @@ def delete_chat_session(
         print(f"找到会话: {session.title}")
 
         # 先删除会话相关的所有消息
-        messages = db.query(ChatMessage).filter(ChatMessage.session_id == session_id).all()
-        print(f"找到 {len(messages)} 条消息需要删除")
-
-        for message in messages:
-            db.delete(message)
+        stmt = delete(ChatMessage).where(ChatMessage.session_id == session_id)
+        db.execute(stmt)
 
         # 删除会话
         db.delete(session)
         db.commit()
 
-        print(f"成功删除会话 {session_id} 和 {len(messages)} 条消息")
         return {"message": "会话删除成功"}
 
     except HTTPException:
@@ -160,9 +150,8 @@ async def create_chat_message(
         context = [{"role": msg.role, "content": msg.content} for msg in history]
 
         # 更新会话的 updated_at 字段
-        session = db.query(ChatSession).filter(ChatSession.id == message.session_id).first()
-        if session:
-            session.updated_at = datetime.now()
+        stmt = update(ChatSession).where(ChatSession.id == message.session_id).values(updated_at=datetime.now())
+        db.execute(stmt)
 
     # 保存用户消息
     user_message = ChatMessage(
@@ -174,10 +163,9 @@ async def create_chat_message(
     db.commit()
 
     # 根据用户设置创建AI服务实例
-    user_ai_service = ai_service.create_user_ai_service(current_user.settings)
-
+    ai_service.create_user_ai_service(current_user.settings)
     # 获取AI回复
-    ai_response = await user_ai_service.chat([*context, {"role": "user", "content": message.content}])
+    ai_response = await ai_service.chat(message.content, context)
 
     # 保存AI回复
     ai_message = ChatMessage(
@@ -247,21 +235,14 @@ async def regenerate_chat_message(
     context = [{"role": msg.role, "content": msg.content} for msg in history]
 
     # 根据用户设置创建AI服务实例
-    user_ai_service = ai_service.create_user_ai_service(current_user.settings)
-
-    # 获取最新的用户消息（重新生成的消息对应的用户消息）
-    user_messages = [msg for msg in history if msg.role == "user"]
-    if not user_messages:
-        raise HTTPException(status_code=400, detail="没有找到对应的用户消息")
-
-    last_user_message = user_messages[-1]
+    ai_service.create_user_ai_service(current_user.settings)
 
     # 获取AI回复
-    ai_response = await user_ai_service.chat([*context, {"role": "user", "content": last_user_message.content}])
+    ai_response = await ai_service.chat(ai_message.content, context)
 
     # 更新AI消息内容
     ai_message.content = ai_response
-    ai_message.created_at = datetime.now()
+    ai_message.updated_at = datetime.now()
 
     # 更新会话的 updated_at 字段
     session.updated_at = datetime.now()
